@@ -9,12 +9,15 @@ import type {
   BatchInput,
   BatchUpdate,
 } from "@shared/schemas/operations";
+import type { TaskInput, TaskUpdate } from "@shared/schemas/task";
+import { taskConflictMessage } from "@shared/schemas/task";
 export type Batch = InferResponseType<typeof api.api.batches.$get>[number];
 export type Product = InferResponseType<typeof api.api.products.$get>[number];
 export type Variant = InferResponseType<typeof api.api.variants.$get>[number];
 export type Customer = InferResponseType<typeof api.api.customers.$get>[number];
 export type Order = InferResponseType<typeof api.api.orders.$get>[number];
 export type User = InferResponseType<typeof api.api.users.$get>[number];
+export type Task = InferResponseType<typeof api.api.tasks.$get>[number];
 export function useBatches() {
   return useQuery({
     queryKey: ["operations", "batches"],
@@ -49,6 +52,12 @@ export function useUsers() {
   return useQuery({
     queryKey: ["operations", "users"],
     queryFn: async () => readJson<User[]>(await api.api.users.$get()),
+  });
+}
+export function useTasks() {
+  return useQuery({
+    queryKey: ["operations", "tasks"],
+    queryFn: async () => readJson<Task[]>(await api.api.tasks.$get()),
   });
 }
 function useWrite<T>(write: (input: T) => Promise<unknown>) {
@@ -108,4 +117,26 @@ export function useUpdateBatch() {
       await api.api.batches[":id"].$put({ param: { id: String(id) }, json }),
     ),
   );
+}
+export function useCreateTask() {
+  return useWrite(async (json: TaskInput) =>
+    readJson(await api.api.tasks.$post({ json })),
+  );
+}
+export function useUpdateTask() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...json }: TaskUpdate & { id: number }) =>
+      readJson(
+        await api.api.tasks[":id"].$patch({
+          param: { id: String(id) },
+          json,
+        }),
+      ),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["operations"] }),
+    onError: (error) => {
+      if (error instanceof Error && error.message === taskConflictMessage)
+        void client.invalidateQueries({ queryKey: ["operations"] });
+    },
+  });
 }

@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   ShoppingBag,
   Building2,
+  ListChecks,
 } from "lucide-react";
 import { Button } from "@client/components/ui/button";
 import {
@@ -17,11 +18,14 @@ import {
   useCustomers,
   useOrders,
   useUsers,
+  useTasks,
 } from "@client/hooks/use-data";
 import { ProductsPage } from "@client/components/features/products";
 import { OrdersPage } from "@client/components/features/orders";
 import { BatchesPage } from "@client/components/features/batches";
 import { OverviewPage } from "@client/components/features/overview";
+import { TasksPage } from "@client/components/features/tasks";
+import { taskTypeLabels } from "@shared/schemas/task";
 import {
   Panel,
   DataTable,
@@ -48,6 +52,12 @@ const navigation = [
     description: "Kövesd a gyártást a tervezéstől az elkészült termékig.",
   },
   {
+    id: "tasks",
+    label: "Feladatok",
+    icon: ListChecks,
+    description: "Teendők, felelősök és határidők egy helyen.",
+  },
+  {
     id: "products",
     label: "Termékek",
     icon: Package,
@@ -71,6 +81,8 @@ export function App() {
   const [path, searchParams] = route.split("?");
   const [page, detail, orderForBatch] = path.split("/");
   const statusFilter = new URLSearchParams(searchParams).get("status") ?? "";
+  const taskView =
+    new URLSearchParams(searchParams).get("view") === "board" ? "board" : "list";
   const active = navigation.find((n) => n.id === page) ?? navigation[0];
   const navRef = useRef<HTMLElement>(null);
   // On narrow screens the navigation scrolls sideways; keep the current page
@@ -89,8 +101,9 @@ export function App() {
     variants = useVariants(),
     customers = useCustomers(),
     orders = useOrders(),
-    users = useUsers();
-  const queries = [batches, products, variants, customers, orders, users];
+    users = useUsers(),
+    tasks = useTasks();
+  const queries = [batches, products, variants, customers, orders, users, tasks];
   const failed = queries.find((q) => q.isError);
   const loading = queries.some((q) => q.isPending);
   const b = batches.data ?? [],
@@ -98,7 +111,8 @@ export function App() {
     v = variants.data ?? [],
     c = customers.data ?? [],
     o = orders.data ?? [],
-    u = users.data ?? [];
+    u = users.data ?? [],
+    taskList = tasks.data ?? [];
   const detailId = detail && detail !== "new" ? Number(detail) : undefined;
   // A detail route is titled by its record; the module stays in the breadcrumb.
   const record =
@@ -125,7 +139,14 @@ export function App() {
                   title: product.name,
                   description: product.category,
                 }))[0]
-            : undefined;
+            : active.id === "tasks"
+              ? taskList
+                  .filter((task) => task.id === detailId)
+                  .map((task) => ({
+                    title: task.title,
+                    description: `${taskTypeLabels[task.type]} · ${task.assigneeName}`,
+                  }))[0]
+              : undefined;
   const heading = record ?? {
     title: active.label,
     description: active.description,
@@ -241,9 +262,18 @@ export function App() {
               variants={v}
               orders={o}
               users={u}
+              tasks={taskList}
               detailId={detailId}
               createRoute={detail === "new"}
               newOrderId={orderForBatch ? Number(orderForBatch) : undefined}
+            />
+          ) : active.id === "tasks" ? (
+            <TasksPage
+              tasks={taskList}
+              users={u}
+              batches={b}
+              detailId={detailId}
+              view={taskView}
             />
           ) : active.id === "customers" ? (
             <Panel>

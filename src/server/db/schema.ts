@@ -1,6 +1,12 @@
-import { sqliteTable, integer, text } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
+import { sqliteTable, integer, text, check } from "drizzle-orm/sqlite-core";
 import type { BatchStatus } from "@shared/schemas/batch";
 import type { OrderStatus } from "@shared/schemas/operations";
+import type {
+  TaskPriority,
+  TaskStatus,
+  TaskType,
+} from "@shared/schemas/task";
 export const users = sqliteTable("users", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   email: text("email").notNull().unique(),
@@ -60,3 +66,26 @@ export const batches = sqliteTable("batches", {
   plannedDate: text("planned_date").notNull(),
   notes: text("notes").notNull().default(""),
 });
+export const tasks = sqliteTable(
+  "tasks",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    title: text("title").notNull(),
+    description: text("description").notNull().default(""),
+    type: text("type").$type<TaskType>().notNull(),
+    status: text("status").$type<TaskStatus>().notNull().default("open"),
+    priority: text("priority").$type<TaskPriority>().notNull().default("normal"),
+    assigneeId: integer("assignee_id")
+      .notNull()
+      .references(() => users.id),
+    batchId: integer("batch_id").references(() => batches.id),
+    dueDate: text("due_date").notNull(),
+    version: integer("version").notNull().default(1),
+  },
+  (table) => [
+    check(
+      "tasks_type_batch_ck",
+      sql`(${table.type} = 'general' AND ${table.batchId} IS NULL) OR (${table.type} = 'production' AND ${table.batchId} IS NOT NULL)`,
+    ),
+  ],
+);

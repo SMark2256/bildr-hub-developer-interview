@@ -3,6 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@client/components/ui/button";
 import { Badge } from "@client/components/ui/badge";
 import { batchStatusLabels, type BatchStatus } from "@shared/schemas/batch";
+import { taskStatusLabels, type TaskStatus } from "@shared/schemas/task";
 import {
   orderStatusLabels,
   type OrderStatus,
@@ -26,6 +27,13 @@ export function BatchStatusBadge({ status }: { status: BatchStatus }) {
   return (
     <Badge variant="outline" className={`status status-${status}`}>
       {batchStatusLabels[status]}
+    </Badge>
+  );
+}
+export function TaskStatusBadge({ status }: { status: TaskStatus }) {
+  return (
+    <Badge variant="outline" className={`status status-${status}`}>
+      {taskStatusLabels[status]}
     </Badge>
   );
 }

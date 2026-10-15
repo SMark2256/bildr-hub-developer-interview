@@ -10,13 +10,16 @@ import "@fontsource/ibm-plex-sans/latin-ext-600.css";
 import "./styles/globals.css";
 import "./styles/app.css";
 import { App } from "./App";
+import { ToastProvider } from "@client/components/ui/toast";
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
 });
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <App />
+      <ToastProvider>
+        <App />
+      </ToastProvider>
     </QueryClientProvider>
   </React.StrictMode>,
 );

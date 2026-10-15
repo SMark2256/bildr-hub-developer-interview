@@ -190,3 +190,84 @@ test("Hibás dátum, mennyiség, idegen kulcs és ismeretlen rekord elutasítás
   );
   await req("/does-not-exist", "GET", undefined, 404);
 });
+test("Feladat felvétele, kapcsolati szabály és verzióütközés", async () => {
+  const general = {
+    title: "Műszak egyeztetés",
+    description: "Következő hét",
+    type: "general",
+    priority: "normal",
+    assigneeId: 6,
+    batchId: null,
+    dueDate: "2026-12-01",
+  };
+  const created = await req("/tasks", "POST", general, 201);
+  assert.equal(created.status, "open");
+  assert.equal(created.version, 1);
+  assert.equal(created.batchId, null);
+  assert.equal(created.assigneeName, "Demó Nóra");
+  await req("/tasks", "POST", { ...general, type: "production", batchId: null }, 400);
+  await req("/tasks", "POST", { ...general, type: "general", batchId: 1 }, 400);
+  await req("/tasks", "POST", { ...general, assigneeId: 99999 }, 400);
+  await req(
+    "/tasks",
+    "POST",
+    { ...general, type: "production", batchId: 99999 },
+    400,
+  );
+  const production = await req(
+    "/tasks",
+    "POST",
+    { ...general, title: "Minta a tételhez", type: "production", batchId: 1 },
+    201,
+  );
+  assert.equal(production.batchCode, "DEMO-001");
+  const update = {
+    title: created.title,
+    description: "Frissítve",
+    type: "general",
+    priority: "urgent",
+    assigneeId: 6,
+    batchId: null,
+    dueDate: "2026-12-01",
+    status: "in_progress",
+    version: 1,
+  };
+  const saved = await req(`/tasks/${created.id}`, "PATCH", update);
+  assert.equal(saved.version, 2);
+  assert.equal(saved.status, "in_progress");
+  assert.equal(saved.description, "Frissítve");
+  const stale = await req(
+    `/tasks/${created.id}`,
+    "PATCH",
+    { ...update, status: "done", description: "Elavult" },
+    409,
+  );
+  assert.match(stale.error, /módosította/);
+  const current = (await req("/tasks")).find((task) => task.id === created.id);
+  assert.equal(current.status, "in_progress");
+  assert.equal(current.version, 2);
+  assert.equal(current.description, "Frissítve");
+  const raced = {
+    ...update,
+    version: 2,
+  };
+  const [first, second] = await Promise.all([
+    fetch(`${base}/api/tasks/${created.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...raced, status: "blocked", description: "Egyik" }),
+    }),
+    fetch(`${base}/api/tasks/${created.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...raced, status: "done", description: "Másik" }),
+    }),
+  ]);
+  const statuses = [first.status, second.status].sort();
+  assert.deepEqual(statuses, [200, 409]);
+  const winner = (await req("/tasks")).find((task) => task.id === created.id);
+  assert.equal(winner.version, 3);
+  assert.ok(winner.status === "blocked" || winner.status === "done");
+  assert.notEqual(winner.description, "Elavult");
+  await req(`/tasks/999999`, "PATCH", update, 404);
+});

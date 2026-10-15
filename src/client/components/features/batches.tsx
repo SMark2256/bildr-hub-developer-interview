@@ -31,6 +31,8 @@ import {
   go,
   number,
 } from "./common";
+import { BatchTasks } from "./tasks";
+import type { Task } from "@client/hooks/use-data";
 function BatchForm({
   batch,
   variants,
@@ -224,6 +226,7 @@ export function BatchesPage({
   variants,
   orders,
   users,
+  tasks,
   detailId,
   newOrderId,
   createRoute = false,
@@ -233,6 +236,7 @@ export function BatchesPage({
   variants: Variant[];
   orders: Order[];
   users: User[];
+  tasks: Task[];
   detailId?: number;
   newOrderId?: number;
   createRoute?: boolean;
@@ -349,6 +353,12 @@ export function BatchesPage({
               ) : null}
             </div>
           </Panel>
+          <BatchTasks
+            batchId={batch.id}
+            tasks={tasks}
+            users={users}
+            batches={batches}
+          />
         </>
       ) : (
         <Panel>
